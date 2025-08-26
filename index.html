@@ -240,6 +240,37 @@
     // ---- PWA bootstrap (single-file friendly) ----
     (function(){
       if(!('serviceWorker' in navigator)) return;
+      // ======= PWA (safe + non-blocking) =======
+try {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {/* ignore */});
+    });
+  }
+  let deferredPrompt = null;
+  const installBtn = document.getElementById('installBtn'); // optional button in header
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) installBtn.style.display = 'inline-block';
+  });
+  installBtn?.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = 'none';
+  });
+} catch (e) {
+  /* never block app on PWA errors */
+}
+
+// Show “App mode” when launched from home screen
+if (window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)) {
+  const st = document.getElementById('status');
+  st.textContent = (st.textContent || '') + ' — App mode';
+}
+
       // Build manifest dynamically so no external file is required
       var manifest = {
         name: 'Student ID Scanner Logger',
