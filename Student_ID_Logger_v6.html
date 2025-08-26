@@ -1,0 +1,251 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Student ID Scanner Logger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>
+    :root { --ok:#0a7b28;--bad:#b00020;--fg:#111;--muted:#666;--bg:#f7f7fb;--card:#fff;--border:#e6e6ee;--accent:#4E60F8; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; color:var(--fg); background:var(--bg); overscroll-behavior:none; }
+
+    /* Header / Toolbar */
+    header { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; }
+    header h1 { font-size:18px; margin:0; font-weight:700; }
+    .spacer { flex:1; }
+    .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    select, input[type="text"], textarea { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#fff; }
+    .btn { border:1px solid var(--border); background:#f0f2ff; padding:10px 12px; border-radius:10px; cursor:pointer; }
+    .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .btn.small { padding:8px 10px; font-size:13px; border-radius:9px; }
+    .status { font-size:14px; color:var(--muted); margin-left:8px; }
+
+    .wrap { max-width:1100px; margin:16px auto; padding:0 16px 90px; }
+    .panel { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
+    .grid { display:grid; grid-template-columns:repeat(12, 1fr); gap:12px; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    label { font-size:13px; color:#333; }
+    textarea { resize:vertical; min-height:72px; }
+    .hint { font-size:13px; color:var(--muted); }
+    .monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
+
+    .table-wrap { max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:12px; background:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid var(--border); padding:10px 8px; text-align:left; font-size:14px; }
+    thead th { position:sticky; top:0; background:#fbfbfe; z-index:5; }
+    .tag { padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); }
+    .tag.ok { border-color:#bfe8c8; background:#eaf9ee; color:var(--ok); }
+    .tag.bad { border-color:#ffd1d6; background:#fff0f2; color:var(--bad); }
+    tr.flash td { animation: flash 0.9s ease; }
+    @keyframes flash { from { background:#fff7cc; } to { background:transparent; } }
+
+    .fixed-download { position:fixed; left:16px; bottom:16px; z-index:30; }
+    .invisible { display:none !important; }
+
+    /* Dark mode */
+    body.dark { --fg:#e9e9ee; --muted:#aeb0bb; --bg:#0f1115; --card:#151821; --border:#23283a; --accent:#6b7dff; }
+    body.dark header { background:#151821; }
+    body.dark select, body.dark input[type="text"], body.dark textarea { background:#1e2230; color:#e9e9ee; border-color:#2a2f44; }
+    body.dark .panel, body.dark .table-wrap { background:#151821; border-color:#23283a; }
+    body.dark thead th { background:#1c2230; }
+    body.dark .btn { background:#1e2230; border-color:#2a2f44; color:#e9e9ee; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Student ID Scanner Logger</h1>
+    <div class="toolbar">
+      <label for="stationSelect" class="hint">Station</label>
+      <select id="stationSelect">
+        <option value="" selected disabled>Select…</option>
+        <option>Navigate Center</option>
+        <option>Success Center</option>
+        <option>Resource Center</option>
+      </select>
+      <button class="btn small" id="addIdTop" disabled>＋ Add ID</button>
+      <button class="btn small" id="addProspectTop" disabled>☆ Add Prospect</button>
+      <button class="btn small" id="toggleDark" title="Toggle dark mode">🌙</button>
+      <span class="status" id="status">Select a station to begin</span>
+    </div>
+    <div class="spacer"></div>
+  </header>
+
+  <div class="wrap">
+    <div class="panel" id="pendingPanel">
+      <h2>Current Entry</h2>
+      <div id="noPending" class="hint">No entry yet. Select a station, then scan or use the Add buttons above.</div>
+      <div id="pendingBox" class="invisible">
+        <div class="grid">
+          <div class="field" style="grid-column: span 3; min-width:180px;">
+            <label>Student ID</label>
+            <input type="text" id="pendingId" class="monospace" readonly>
+          </div>
+          <div class="field" style="grid-column: span 3; min-width:200px;">
+            <label>Timestamp</label>
+            <input type="text" id="pendingTs" readonly>
+          </div>
+          <div class="field" style="grid-column: span 3; min-width:200px;">
+            <label>Reason <span class="hint">(required)</span></label>
+            <select id="pendingReason">
+              <option value="" disabled selected>Select…</option>
+              <option>Computer Use</option>
+              <option>Event</option>
+              <option>Advising</option>
+              <option>Assistance</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field invisible" id="otherField" style="grid-column: span 3; min-width:220px;">
+            <label>Other (max 30 chars)</label>
+            <input type="text" id="pendingOther" maxlength="30" placeholder="Type reason…">
+          </div>
+          <div class="field" style="grid-column: span 6; min-width:240px;">
+            <label>Name <span class="hint">(required)</span></label>
+            <input type="text" id="pendingName" placeholder="Type student name…">
+          </div>
+          <div class="field" style="grid-column: span 6; min-width:240px;">
+            <label>Note (optional)</label>
+            <textarea id="pendingNote" maxlength="200" placeholder="Any quick note… (≤ 200 chars)"></textarea>
+          </div>
+          <div style="grid-column: span 12; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn primary" id="saveMeta">Save</button>
+            <button class="btn" id="cancelMeta">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Log</h2>
+      <div class="table-wrap" id="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Timestamp</th>
+              <th>Station</th>
+              <th>Student ID</th>
+              <th>Type</th>
+              <th>Reason</th>
+              <th>Other</th>
+              <th>Name</th>
+              <th>Note</th>
+              <th>Validity</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn small fixed-download" id="downloadCsv">⬇️ Download All</button>
+
+<script>
+  // ======= State =======
+  let logs=[]; // {ts,id,station,reason,other,name,note,valid,type}
+  let pendingIndex=null;
+  let buffer=""; let recent=[]; const DUP_MS=7000;
+  let station="";
+
+  // ======= Helpers =======
+  const $=s=>document.querySelector(s);
+  function nowISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}` }
+  function beep(freq=880,dur=90){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); o.connect(ctx.destination); o.frequency.value=freq; o.start(); o.stop(ctx.currentTime+dur/1000); }catch(e){} }
+
+  // ======= Theme =======
+  function applyTheme(){ const t=localStorage.getItem('theme')||'light'; document.body.classList.toggle('dark', t==='dark'); $('#toggleDark').textContent = t==='dark' ? '☀️' : '🌙'; }
+  applyTheme();
+  $('#toggleDark').addEventListener('click', ()=>{ const t=document.body.classList.contains('dark')?'light':'dark'; localStorage.setItem('theme', t); applyTheme(); });
+
+  // ======= UI =======
+  function updatePendingUI(){
+    if(pendingIndex===null){ $('#noPending').classList.remove('invisible'); $('#pendingBox').classList.add('invisible'); return; }
+    const r=logs[pendingIndex];
+    $('#noPending').classList.add('invisible'); $('#pendingBox').classList.remove('invisible');
+    $('#pendingId').value=r.id||''; $('#pendingTs').value=r.ts;
+    $('#pendingReason').value=r.reason||''; $('#pendingOther').value=r.other||''; $('#pendingName').value=r.name||''; $('#pendingNote').value=r.note||'';
+    toggleOtherField();
+  }
+  function toggleOtherField(){ const show = ($('#pendingReason').value==='Other'); $('#otherField').classList.toggle('invisible', !show); if(show){ $('#pendingOther').focus(); } else { $('#pendingName').focus(); } }
+  function renderLogs(){ const tb=$('#logBody'); tb.innerHTML=''; for(let i=logs.length-1, n=1;i>=0;i--,n++){ const r=logs[i]; const tr=document.createElement('tr'); tr.innerHTML=`<td>${n}</td><td>${r.ts}</td><td>${r.station||''}</td><td class="monospace">${r.id||'—'}</td><td>${r.type||'ID'}</td><td>${r.reason||''}</td><td>${r.other||''}</td><td>${r.name||''}</td><td>${r.note||''}</td><td><span class="tag ${r.valid?'ok':'bad'}">${r.valid?'valid':'invalid'}</span></td>`; tb.appendChild(tr); } $('#tableWrap').scrollTop=0; tb.firstElementChild?.classList.add('flash'); setTimeout(()=>tb.firstElementChild?.classList.remove('flash'),900); }
+
+  // ======= Station selection =======
+  $('#stationSelect').addEventListener('change', ()=>{
+    station = $('#stationSelect').value || '';
+    const enabled = !!station;
+    $('#addIdTop').disabled = !enabled;
+    $('#addProspectTop').disabled = !enabled;
+    $('#status').textContent = enabled ? `${station} — Ready` : 'Select a station to begin';
+  });
+
+  // ======= Add / Save =======
+  function addEntry(id, type='ID'){
+    if(!station){ $('#status').textContent = 'Select a station first'; return; }
+    // duplicate suppression (IDs only)
+    if(type==='ID'){
+      const now=Date.now(); recent = recent.filter(x=> now - x.t < DUP_MS );
+      if(recent.some(x=> x.id===id)){ $('#status').textContent = `Duplicate ignored: ${id}`; beep(260,120); return; }
+      recent.push({id, t:now});
+    }
+    const ts = nowISO();
+    const valid = type==='ID' ? /^\d{7}$/.test(id) : true;
+    const row = { ts, id, station, reason:'', other:'', name:'', note:'', valid, type };
+    logs.push(row); pendingIndex = logs.length-1; updatePendingUI(); renderLogs();
+    $('#pendingReason').focus();
+    beep(valid?880:160, valid?80:140);
+  }
+
+  $('#saveMeta').addEventListener('click', ()=>{
+    if(pendingIndex===null) return;
+    const r=logs[pendingIndex];
+    r.reason = $('#pendingReason').value || '';
+    r.other = r.reason==='Other' ? ($('#pendingOther').value||'') : '';
+    r.name = $('#pendingName').value || '';
+    r.note = $('#pendingNote').value || '';
+    if(!r.reason){ alert('Reason is required'); $('#pendingReason').focus(); return; }
+    if(!r.name.trim()){ alert('Name is required'); $('#pendingName').focus(); return; }
+    renderLogs(); pendingIndex=null; updatePendingUI();
+  });
+
+  $('#cancelMeta').addEventListener('click', ()=>{
+    if(pendingIndex!==null){ logs.splice(pendingIndex,1); pendingIndex=null; updatePendingUI(); renderLogs(); }
+  });
+
+  // ======= Scanner input =======
+  document.addEventListener('keydown', (e)=>{
+    const tag=document.activeElement?.tagName;
+    if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT') return;
+    if(!station) return;
+    if(/^\d$/.test(e.key)){
+      buffer += e.key;
+      if(buffer.length===7){ addEntry(buffer, 'ID'); buffer=''; }
+    }
+  });
+
+  // ======= Top buttons =======
+  $('#addIdTop').addEventListener('click', ()=>{
+    if(!station){ alert('Select a station first'); return; }
+    const id = prompt('Enter Student ID (7 digits):');
+    if(!id) return; addEntry(id.trim(), 'ID');
+  });
+  $('#addProspectTop').addEventListener('click', ()=>{
+    if(!station){ alert('Select a station first'); return; }
+    const name = prompt('Enter prospect name:'); if(!name) return;
+    const pid = `P-${String(logs.filter(x=>x.type==='Prospect').length+1).padStart(4,'0')}`;
+    addEntry(pid, 'Prospect');
+    // pre-fill name and focus reason
+    const r=logs[pendingIndex]; r.name=name; updatePendingUI(); $('#pendingReason').focus();
+  });
+
+  // ======= Download =======
+  $('#downloadCsv').addEventListener('click', ()=>{
+    const header=['timestamp','station','student_id','type','reason','other','name','note','valid'];
+    const rows=logs.map(r=>[r.ts,r.station||'',r.id||'',r.type||'ID',r.reason||'',r.other||'',r.name||'',r.note||'',r.valid?'true':'false']);
+    const csv=[header,...rows].map(row=>row.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=`student_scans_${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>
