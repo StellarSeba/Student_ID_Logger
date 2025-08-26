@@ -1,0 +1,279 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Student ID Scanner Logger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#4E60F8" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest" />
+  <style>
+    :root { --ok:#0a7b28;--bad:#b00020;--fg:#111;--muted:#666;--bg:#f7f7fb;--card:#fff;--border:#e6e6ee;--accent:#4E60F8; }
+    body { font-family:system-ui,sans-serif;margin:0;color:var(--fg);background:var(--bg); }
+    header { display:flex;align-items:center;gap:12px;padding:18px 22px;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5; }
+    header h1 { font-size:18px;margin:0;font-weight:700; }
+    header .status { margin-left:auto;font-size:14px;color:var(--muted); }
+
+    .wrap { max-width:1100px;margin:18px auto;padding:0 22px 80px; }
+    .panel { background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px; }
+    .grid { display:grid;grid-template-columns:repeat(12,1fr);gap:12px; }
+    .field { display:flex;flex-direction:column;gap:6px; }
+    label { font-size:13px;color:#333; }
+    input[type=text],select,textarea { font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:white; }
+    textarea { resize:vertical;min-height:72px; }
+
+    .btn { border:1px solid var(--border);background:#f6f6ff;padding:10px 14px;border-radius:10px;cursor:pointer; }
+    .btn.primary { background:var(--accent);color:#fff;border-color:var(--accent); }
+    .btn.small { padding:8px 10px;font-size:13px;border-radius:9px; }
+    .btn.danger { background:#b00020;color:#fff; }
+
+    .hint { font-size:13px;color:var(--muted); }
+    table { width:100%;border-collapse:collapse; }
+    th,td { border-bottom:1px solid var(--border);padding:10px 8px;text-align:left;font-size:14px; }
+    th { background:#fbfbfe;position:sticky;top:0;z-index:2; }
+    .tag { padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--border); }
+    .tag.ok { border-color:#bfe8c8;background:#eaf9ee;color:var(--ok); }
+    .tag.bad { border-color:#ffd1d6;background:#fff0f2;color:var(--bad); }
+
+    .fixed-download { position:fixed;left:16px;bottom:16px; }
+    .invisible { display:none!important; }
+
+    body.dark { background:#121418; color:#e9e9ee; }
+    body.dark header, body.dark .panel, body.dark table { background:#161a20; border-color:#23283a; }
+    body.dark th { background:#1c212b; }
+    body.dark input, body.dark select, body.dark textarea { background:#1f2430; color:#e9e9ee; border-color:#2a3042; }
+    body.dark .btn { background:#1f2430; color:#e9e9ee; border-color:#2a3042; }
+  </style>
+  <meta name="theme-color" content="#4E60F8" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P8z/D/PwAHggJ/P3vGMQAAAABJRU5ErkJggg==" />
+</head>
+<body>
+  <header>
+    <h1>Student ID Scanner Logger</h1>
+    <div class="status" id="status">Select a station to begin</div>
+    <button class="btn small" id="installBtn" style="display:none;">⬇️ Install</button>
+    <button class="btn small" id="toggleDark">🌙</button>
+    <button class="btn small" id="installPWA" style="display:none;">⬇️ Install</button>
+  </header>
+
+  <div class="wrap">
+    <div class="panel">
+      <h2>Setup</h2>
+      <div class="field">
+        <label for="stationSelect">Station (required)</label>
+        <select id="stationSelect">
+          <option value="" selected disabled>Select Station…</option>
+          <option>Navigate Center</option>
+          <option>Success Center</option>
+          <option>Resource Center</option>
+        </select>
+      </div>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button class="btn small" id="manualAdd">＋ Add ID</button>
+        <button class="btn small" id="prospectAdd">☆ Add Prospect</button>
+      </div>
+    </div>
+
+    <div class="panel" id="pendingPanel">
+      <h2>Current Scan</h2>
+      <div id="noPending" class="hint">No scan yet. Scan an ID or add manually.</div>
+      <div id="pendingBox" class="invisible">
+        <div class="grid">
+          <div class="field" style="grid-column: span 3;">
+            <label>Student ID</label>
+            <input type="text" id="pendingId" readonly>
+          </div>
+          <div class="field" style="grid-column: span 3;">
+            <label>Timestamp</label>
+            <input type="text" id="pendingTs" readonly>
+          </div>
+          <div class="field" style="grid-column: span 3;">
+            <label>Reason</label>
+            <select id="pendingReason">
+              <option value="" disabled selected>Select…</option>
+              <option>Computer Use</option>
+              <option>Event</option>
+              <option>Advising</option>
+              <option>Assistance</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field invisible" id="otherField" style="grid-column: span 3;">
+            <label>Other (max 30 chars)</label>
+            <input type="text" id="pendingOther" maxlength="30">
+          </div>
+          <div class="field" style="grid-column: span 6;">
+            <label>Name</label>
+            <input type="text" id="pendingName">
+          </div>
+          <div class="field" style="grid-column: span 6;">
+            <label>Note (optional)</label>
+            <textarea id="pendingNote" maxlength="200"></textarea>
+          </div>
+          <div style="grid-column: span 12; display:flex; gap:8px;">
+            <button class="btn primary" id="saveMeta">Save</button>
+            <button class="btn danger" id="cancelMeta">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Log</h2>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Station</th><th>Timestamp</th><th>Student ID</th><th>Reason</th><th>Other</th><th>Name</th><th>Note</th><th>Validity</th>
+        </tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="btn small fixed-download" id="downloadCsv">⬇️ Download All</button>
+
+<script>
+  let logs=[];let pendingIndex=null;let buffer="";let recent=[];const DUP_MS=5000;let station="";
+
+  const $=s=>document.querySelector(s);
+  function nowISO(){return new Date().toISOString().slice(0,19).replace('T',' ')}
+
+  function addLog(id,prospective=false){
+    if(!station){ alert('Select a station first'); return; }
+    if(!prospective && recent.some(r=>r.id===id&&Date.now()-r.t<DUP_MS)){ return; }
+    const valid=prospective?false:/^\d{7}$/.test(id);
+    const row={station,ts:nowISO(),id,reason:'',other:'',name:'',note:'',valid};
+    logs.push(row);pendingIndex=logs.length-1;
+    recent.push({id,t:Date.now()});
+    updatePendingUI();renderLogs();
+    $('#pendingReason').focus();
+  }
+
+  function updatePendingUI(){
+    if(pendingIndex===null){$('#noPending').classList.remove('invisible');$('#pendingBox').classList.add('invisible');return;}
+    const r=logs[pendingIndex];
+    $('#noPending').classList.add('invisible');$('#pendingBox').classList.remove('invisible');
+    $('#pendingId').value=r.id;$('#pendingTs').value=r.ts;
+    $('#pendingReason').value=r.reason||'';$('#pendingOther').value=r.other||'';
+    $('#pendingName').value=r.name||'';$('#pendingNote').value=r.note||'';
+    toggleOtherField();
+  }
+
+  function toggleOtherField(){ $('#otherField').classList.toggle('invisible',$('#pendingReason').value!=='Other'); }
+
+  function renderLogs(){
+    const tb=$('#logBody');tb.innerHTML='';
+    logs.forEach((r,i)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${i+1}</td><td>${r.station}</td><td>${r.ts}</td><td>${r.id}</td><td>${r.reason}</td><td>${r.other}</td><td>${r.name}</td><td>${r.note}</td><td><span class="tag ${r.valid?'ok':'bad'}">${r.valid?'valid':'invalid'}</span></td>`;
+      tb.appendChild(tr);
+    });
+    tb.lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+
+  document.addEventListener('keydown',e=>{
+    if(!station) return;
+    if(e.key.length===1&&/\d/.test(e.key)){
+      buffer+=e.key;
+      if(buffer.length===7){addLog(buffer);buffer="";}
+    }
+  });
+
+  $('#pendingReason').addEventListener('change',()=>{toggleOtherField();$('#pendingName').focus();});
+
+  $('#saveMeta').addEventListener('click',()=>{
+    if(pendingIndex===null)return;
+    const r=logs[pendingIndex];
+    r.reason=$('#pendingReason').value;r.other=r.reason==='Other'?$('#pendingOther').value:'';
+    r.name=$('#pendingName').value;r.note=$('#pendingNote').value;
+    if(!r.reason){alert('Reason required');return;}
+    if(!r.name){alert('Name required');return;}
+    renderLogs();pendingIndex=null;updatePendingUI();
+  });
+
+  $('#cancelMeta').addEventListener('click',()=>{if(pendingIndex!==null){logs.pop();pendingIndex=null;updatePendingUI();renderLogs();}});
+
+  $('#downloadCsv').addEventListener('click',()=>{
+    const header=['station','timestamp','student_id','reason','other','name','note','valid'];
+    const rows=logs.map(r=>[r.station,r.ts,r.id,r.reason,r.other,r.name,r.note,r.valid]);
+    const csv=[header,...rows].map(r=>r.map(x=>`"${x}"`).join(",")).join("\n");
+    const blob=new Blob([csv],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='logs.csv';a.click();URL.revokeObjectURL(url);
+  });
+
+  $('#manualAdd').addEventListener('click',()=>{if(!station){alert('Select a station first');return;}const id=prompt('Enter Student ID (7 digits):');if(id)addLog(id);});
+  $('#prospectAdd').addEventListener('click',()=>{if(!station){alert('Select a station first');return;}const name=prompt('Enter prospective student name:');if(name){addLog('PROSPECT',true);logs[logs.length-1].name=name;renderLogs();}});
+
+  $('#stationSelect').addEventListener('change',()=>{station=$('#stationSelect').value;$('#status').textContent=`Station selected: ${station}`;});
+
+  function applyTheme(){ const t=localStorage.getItem('theme')||'light'; document.body.classList.toggle('dark', t==='dark'); $('#toggleDark').textContent=t==='dark'?'☀️':'🌙'; }
+  applyTheme();
+  $('#toggleDark').addEventListener('click',()=>{const t=document.body.classList.contains('dark')?'light':'dark'; localStorage.setItem('theme',t); applyTheme();});
+
+  // PWA support
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err=>console.log('SW reg failed', err));
+    });
+  }
+
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('installPWA').style.display='inline-block';
+  });
+
+  document.getElementById('installPWA').addEventListener('click', async ()=>{
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt=null;
+      document.getElementById('installPWA').style.display='none';
+    }
+  });
+
+  <script>
+    // ---- PWA bootstrap (single-file friendly) ----
+    (function(){
+      if(!('serviceWorker' in navigator)) return;
+      // Build manifest dynamically so no external file is required
+      var manifest = {
+        name: 'Student ID Scanner Logger',
+        short_name: 'Scanner Logger',
+        start_url: './',
+        scope: './',
+        display: 'standalone',
+        background_color: '#0f1115',
+        theme_color: '#4E60F8',
+        icons: [
+          { src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P8z/D/PwAHggJ/P3vGMQAAAABJRU5ErkJggg==', sizes: '192x192', type: 'image/png' },
+          { src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P8z/D/PwAHggJ/P3vGMQAAAABJRU5ErkJggg==', sizes: '512x512', type: 'image/png' }
+        ]
+      };
+      var mUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'}));
+      var ml = document.createElement('link'); ml.rel='manifest'; ml.href=mUrl; document.head.appendChild(ml);
+
+      // Try ./sw.js first (if you later add a real file). Otherwise register an inline SW.
+      var inlineSW = "const C='cache-v1';self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])))});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==C).map(k=>caches.delete(k)))));self.clients.claim()});self.addEventListener('fetch',e=>{if(e.request.method!=='GET'){return;}e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(e.request,cp));return res;}).catch(()=>caches.match('./'))))});";
+      function registerInlineSW(){ var swUrl = URL.createObjectURL(new Blob([inlineSW], {type:'text/javascript'})); return navigator.serviceWorker.register(swUrl, {scope:'./'}); }
+      navigator.serviceWorker.register('./sw.js', {scope:'./'}).catch(function(){ return registerInlineSW(); }).catch(function(err){ console.log('SW registration failed:', err); });
+
+      // Install button (Android/desktop). iOS uses Share > Add to Home Screen.
+      var installBtn = document.getElementById('installBtn'); var deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferredPrompt = e; installBtn.style.display='inline-block'; });
+      installBtn && installBtn.addEventListener('click', function(){ if(!deferredPrompt) return; deferredPrompt.prompt(); deferredPrompt.userChoice.finally(function(){ deferredPrompt=null; installBtn.style.display='none'; }); });
+
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+        var st = document.getElementById('status'); st.textContent = (st.textContent||'') + ' — App mode';
+      }
+
+      // Show a gentle hint if not a secure context (file:// or http). SW requires https or localhost.
+      try { if(!window.isSecureContext && location.protocol!=='http:' && location.protocol!=='https:'){ console.log('Note: Service Worker needs https or localhost. For iPad, host this file (GitHub Pages/Netlify) then Add to Home Screen.'); } } catch(e){}
+    })();
+  </script>
+</body>
+</html>
